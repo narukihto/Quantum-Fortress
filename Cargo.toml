@@ -2,7 +2,6 @@
 name = "quantum_fortress"
 version = "1.0.0"
 edition = "2021"
-description = "Post-Quantum Secure API Gateway with Entropy Analysis"
 
 [dependencies]
 axum = "0.7"
@@ -10,9 +9,10 @@ tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 moka = { version = "0.12", features = ["future"] }
-tower-http = { version = "0.5", features = ["limit"] }
+tower-http = { version = "0.5", features = ["limit", "cors"] } # Merged features
 tower = { version = "0.4", features = ["util"] }
 pqcrypto-kyber = "0.8"
 pqcrypto-dilithium = "0.5"
 pqcrypto-traits = "0.3"
-tower-http = { version = "0.5", features = ["limit", "cors"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
