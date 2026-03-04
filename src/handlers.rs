@@ -1,55 +1,76 @@
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{extract::State, Json};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::sync::atomic::Ordering; // High-performance memory ordering
-use tracing::{info, warn, error};
-use crate::{AppState, SecurePayload}; 
-use crate::entropy::EntropyScanner;
-use crate::crypto::QuantumCrypto;
 
-/// High-Performance Verification Pipeline
-pub async fn verify_handler(
+use crate::{AppState, crypto::QuantumCrypto, entropy::EntropyScanner};
+
+const MAX_NONCE: usize = 128;
+const MAX_DATA: usize = 65_536;
+const DILITHIUM2_PK: usize = 1312;
+const DILITHIUM2_SIG: usize = 2420;
+const MIN_ENTROPY: f64 = 4.5;
+
+#[derive(Deserialize)]
+pub struct SecurePayload {
+    pub nonce: String,
+    pub data: Vec<u8>,
+    pub signature: Vec<u8>,
+    pub public_key: Vec<u8>,
+}
+
+#[derive(Serialize)]
+pub struct ApiResponse {
+    pub status: &'static str,
+    pub message: &'static str,
+}
+
+pub async fn verify(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SecurePayload>,
-) -> Result<Json<String>, StatusCode> {
-    
-    // Increment total requests immediately using Atomic fetch_add
-    // This is non-blocking and thread-safe
-    state.metrics.total_requests.fetch_add(1, Ordering::Relaxed);
+) -> Json<ApiResponse> {
 
-    // --- SECURITY LAYER 0: Size Validation ---
-    // Prevent Memory Bloat Attacks
-    if payload.nonce.len() > 128 || payload.data.len() > 65536 {
-        error!("⚠️ DOS ATTEMPT: Payload size exceeds safety limits.");
-        return Err(StatusCode::PAYLOAD_TOO_LARGE);
+    // 1. Strict size validation
+    if payload.nonce.len() > MAX_NONCE
+        || payload.data.len() > MAX_DATA
+        || payload.public_key.len() != DILITHIUM2_PK
+        || payload.signature.len() != DILITHIUM2_SIG
+    {
+        return Json(ApiResponse {
+            status: "error",
+            message: "Invalid payload structure",
+        });
     }
 
-    // --- PHASE 1: Replay Protection ---
-    if state.nonce_registry.contains_key(&payload.nonce) {
-        warn!("⚠️ SECURITY ALERT: Replay attack detected! Nonce: {}", payload.nonce);
-        state.metrics.blocked_replay.fetch_add(1, Ordering::Relaxed);
-        return Err(StatusCode::CONFLICT);
-    }
-    state.nonce_registry.insert(payload.nonce.clone(), true).await;
-
-    // --- PHASE 2: Behavioral Entropy Analysis ---
-    if !EntropyScanner::is_secure(payload.data.as_bytes()) {
-        error!("🛑 MALICIOUS PAYLOAD: Low entropy detected (Potential Injection).");
-        state.metrics.blocked_entropy.fetch_add(1, Ordering::Relaxed);
-        return Err(StatusCode::BAD_REQUEST);
+    // 2. Replay protection (atomic insert)
+    if state.nonce_cache.insert(payload.nonce.clone(), ()).await.is_some() {
+        return Json(ApiResponse {
+            status: "error",
+            message: "Replay attack detected",
+        });
     }
 
-    // --- PHASE 3: Post-Quantum Cryptographic Verification ---
-    // This is the most CPU-intensive part; good thing we removed the Mutex locks!
+    // 3. Entropy validation
+    if !EntropyScanner::is_secure(&payload.data, MIN_ENTROPY) {
+        return Json(ApiResponse {
+            status: "error",
+            message: "Low entropy payload",
+        });
+    }
+
+    // 4. Post-Quantum signature verification
     if !QuantumCrypto::verify_signature(
-        payload.data.as_bytes(),
+        &payload.data,
         &payload.signature,
-        &payload.public_key
+        &payload.public_key,
     ) {
-        warn!("🚫 AUTH FAILURE: PQC Signature mismatch for nonce: {}", payload.nonce);
-        return Err(StatusCode::UNAUTHORIZED);
+        return Json(ApiResponse {
+            status: "error",
+            message: "Invalid signature",
+        });
     }
 
-    // --- SUCCESS ---
-    info!("✅ PQC Verified: Nonce [{}]", payload.nonce);
-    Ok(Json("Verified_Secure_PQC".to_string()))
+    Json(ApiResponse {
+        status: "success",
+        message: "Verification passed",
+    })
 }
