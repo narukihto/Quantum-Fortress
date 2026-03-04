@@ -4,6 +4,7 @@ services:
   quantum-fortress:
     build: .
     container_name: quantum_fortress_sentinel
+    # Use environment variables with sensible defaults
     ports:
       - "${SERVER_PORT:-3000}:3000"
     env_file:
@@ -13,21 +14,28 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.50' # Max 50% CPU usage to prevent spikes
-          memory: 512M # Max 512MB RAM to prevent memory leaks
+          cpus: '0.50'
+          memory: 512M
     
     # --- Self-Healing Strategy ---
-    restart: always # Auto-restart if the service crashes or the server reboots
+    restart: always 
     
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/stats"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    # NOTE: Healthcheck with 'curl' will fail on Distroless images.
+    # We rely on the Rust binary's internal panic handling and Docker's restart policy.
+    # Or you can use a gRPC health probe if implemented.
+
+    # --- Hardened Security Layers ---
+    security_opt:
+      - no-new-privileges:true # Prevents processes from gaining new privileges
+    cap_drop:
+      - ALL # Drops all Linux capabilities (Extreme security)
+    read_only: false # Set to true if your app doesn't need to write to disk
+    tmpfs:
+      - /tmp # Allow memory-based temp files only
     
     # --- Logging Security ---
     logging:
       driver: "json-file"
       options:
-        max-size: "10m" # Prevents disk-filling attacks via logs
+        max-size: "10m"
         max-file: "3"
