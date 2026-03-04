@@ -39,7 +39,6 @@ Access via: http://localhost:3000/
 Environment Configuration
 Create a .env file in the root:
 
-مقتطف الرمز
 
 SERVER_PORT=3000
 ENTROPY_THRESHOLD=3.2
