@@ -1,6 +1,7 @@
 use axum::{extract::State, Json};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::{AppState, crypto::QuantumCrypto, entropy::EntropyScanner};
 
@@ -24,53 +25,49 @@ pub struct ApiResponse {
     pub message: &'static str,
 }
 
+#[derive(Serialize)]
+pub struct StatsResponse {
+    pub total_requests: usize,
+    pub blocked_replay: usize,
+    pub blocked_entropy: usize,
+}
+
 pub async fn verify(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SecurePayload>,
 ) -> Json<ApiResponse> {
+    state.total_requests.fetch_add(1, Ordering::SeqCst);
 
-    // 1. Strict size validation
-    if payload.nonce.len() > MAX_NONCE
-        || payload.data.len() > MAX_DATA
-        || payload.public_key.len() != DILITHIUM2_PK
-        || payload.signature.len() != DILITHIUM2_SIG
-    {
-        return Json(ApiResponse {
-            status: "error",
-            message: "Invalid payload structure",
-        });
+    // 1. Size Validation
+    if payload.nonce.len() > MAX_NONCE || payload.data.len() > MAX_DATA 
+        || payload.public_key.len() != DILITHIUM2_PK || payload.signature.len() != DILITHIUM2_SIG {
+        return Json(ApiResponse { status: "error", message: "Invalid payload structure" });
     }
 
-    // 2. Replay protection (atomic insert)
+    // 2. Replay Protection
     if state.nonce_cache.insert(payload.nonce.clone(), ()).await.is_some() {
-        return Json(ApiResponse {
-            status: "error",
-            message: "Replay attack detected",
-        });
+        state.blocked_replay.fetch_add(1, Ordering::SeqCst);
+        return Json(ApiResponse { status: "error", message: "Replay attack detected" });
     }
 
-    // 3. Entropy validation
+    // 3. Entropy Check
     if !EntropyScanner::is_secure(&payload.data, MIN_ENTROPY) {
-        return Json(ApiResponse {
-            status: "error",
-            message: "Low entropy payload",
-        });
+        state.blocked_entropy.fetch_add(1, Ordering::SeqCst);
+        return Json(ApiResponse { status: "error", message: "Low entropy payload" });
     }
 
-    // 4. Post-Quantum signature verification
-    if !QuantumCrypto::verify_signature(
-        &payload.data,
-        &payload.signature,
-        &payload.public_key,
-    ) {
-        return Json(ApiResponse {
-            status: "error",
-            message: "Invalid signature",
-        });
+    // 4. Quantum Signature Verification
+    if !QuantumCrypto::verify_signature(&payload.data, &payload.signature, &payload.public_key) {
+        return Json(ApiResponse { status: "error", message: "Invalid signature" });
     }
 
-    Json(ApiResponse {
-        status: "success",
-        message: "Verification passed",
+    Json(ApiResponse { status: "success", message: "Verification passed" })
+}
+
+pub async fn get_stats(State(state): State<Arc<AppState>>) -> Json<StatsResponse> {
+    Json(StatsResponse {
+        total_requests: state.total_requests.load(Ordering::SeqCst),
+        blocked_replay: state.blocked_replay.load(Ordering::SeqCst),
+        blocked_entropy: state.blocked_entropy.load(Ordering::SeqCst),
     })
 }
