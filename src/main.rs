@@ -1,42 +1,45 @@
-use axum::{
-    routing::post,
-    Router,
-};
+use axum::{routing::{post, get}, Router};
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::sync::atomic::AtomicUsize;
 use moka::future::Cache;
 use std::time::Duration;
+use tokio::net::TcpListener;
 
 mod handlers;
 mod crypto;
 mod entropy;
 
-#[derive(Clone)]
 pub struct AppState {
     pub nonce_cache: Cache<String, ()>,
+    pub total_requests: AtomicUsize,
+    pub blocked_replay: AtomicUsize,
+    pub blocked_entropy: AtomicUsize,
 }
 
 #[tokio::main]
 async fn main() {
-    let nonce_cache = Cache::builder()
-        .max_capacity(50_000)
-        .time_to_live(Duration::from_secs(300))
-        .build();
-
-    let state = AppState {
-        nonce_cache,
-    };
+    let state = Arc::new(AppState {
+        nonce_cache: Cache::builder()
+            .max_capacity(50_000)
+            .time_to_live(Duration::from_secs(300))
+            .build(),
+        total_requests: AtomicUsize::new(0),
+        blocked_replay: AtomicUsize::new(0),
+        blocked_entropy: AtomicUsize::new(0),
+    });
 
     let app = Router::new()
-        .route("/api/verify", post(handlers::verify))
-        .with_state(Arc::new(state));
+        // Matches URL in tests.rs
+        .route("/v1/quantum-verify", post(handlers::verify)) 
+        // Matches fetch() in dashboard.html
+        .route("/api/stats", get(handlers::get_stats)) 
+        .with_state(state);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
-    println!("Secure PQ Gateway running on {}", addr);
+    // Port 3000 matches docker-compose.yml and tests.rs
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    println!("🚀 QuantumFortress Sentinel running on http://{}", addr);
 
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+    let listener = TcpListener::bind(&addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
 }
