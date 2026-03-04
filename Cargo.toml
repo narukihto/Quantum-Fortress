@@ -5,14 +5,16 @@ edition = "2021"
 
 [dependencies]
 axum = "0.7"
-tokio = { version = "1.0", features = ["full"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 moka = { version = "0.12", features = ["future"] }
-tower-http = { version = "0.5", features = ["limit", "cors"] } # Merged features
-tower = { version = "0.4", features = ["util"] }
-pqcrypto-kyber = "0.8"
-pqcrypto-dilithium = "0.5"
-pqcrypto-traits = "0.3"
+pqcrypto-dilithium = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["trace"] }
+tower-governor = "0.4"
 tracing = "0.1"
-tracing-subscriber = "0.3"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+rustls = "0.22"
+tokio-rustls = "0.25"
+axum-server = { version = "0.6", features = ["tls-rustls"] }
