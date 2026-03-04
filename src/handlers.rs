@@ -5,45 +5,61 @@ use crate::{AppState, SecurePayload};
 use crate::entropy::EntropyScanner;
 use crate::crypto::QuantumCrypto;
 
-/// Core Verification Pipeline
-/// This handler orchestrates the security checks in a 3-phase sequence.
+/// Core Verification Pipeline with Real-time Metrics Update
 pub async fn verify_handler(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SecurePayload>,
 ) -> Result<Json<String>, StatusCode> {
     
-    // Logging the start of the process 
+    // Log start of the process
     info!("Processing verification request for nonce: {}", payload.nonce);
 
     // --- PHASE 1: Replay Protection ---
-    // Check if the nonce exists in the high-performance moka cache 
     if state.nonce_registry.contains_key(&payload.nonce) {
         warn!("⚠️ SECURITY ALERT: Replay attack detected! Nonce: {}", payload.nonce);
+        
+        // Update Dashboard Stats: Increment Blocked Replay
+        let mut stats = state.metrics.lock().unwrap();
+        stats.blocked_replay += 1;
+        stats.total_requests += 1;
+        
         return Err(StatusCode::CONFLICT);
     }
-    // Register the nonce to block future duplicate requests 
     state.nonce_registry.insert(payload.nonce.clone(), true).await;
 
     // --- PHASE 2: Behavioral Entropy Analysis ---
-    // Use the dynamic threshold loaded from the .env file 
     if !EntropyScanner::is_secure(payload.data.as_bytes()) {
-        error!("🛑 MALICIOUS PAYLOAD: Data randomness below threshold. Potential injection/malware.");
+        error!("🛑 MALICIOUS PAYLOAD: Low entropy detected. Potential injection.");
+        
+        // Update Dashboard Stats: Increment Entropy Violations
+        let mut stats = state.metrics.lock().unwrap();
+        stats.blocked_entropy += 1;
+        stats.total_requests += 1;
+        
         return Err(StatusCode::BAD_REQUEST);
     }
 
     // --- PHASE 3: Post-Quantum Cryptographic Verification ---
-    // Verify the ML-DSA (Dilithium2) signature 
     if !QuantumCrypto::verify_signature(
         payload.data.as_bytes(),
         &payload.signature,
         &payload.public_key
     ) {
-        warn!("🚫 AUTH FAILURE: Cryptographic signature mismatch for nonce: {}", payload.nonce);
+        warn!("🚫 AUTH FAILURE: Signature mismatch for nonce: {}", payload.nonce);
+        
+        // Update Dashboard Stats: Count as request but failed auth
+        let mut stats = state.metrics.lock().unwrap();
+        stats.total_requests += 1;
+        
         return Err(StatusCode::UNAUTHORIZED);
     }
 
-    // Logging successful verification 
+    // --- SUCCESS ---
     info!("✅ Request verified and authorized: Nonce [{}]", payload.nonce);
+    
+    // Update Dashboard Stats: Increment Total Successful Requests
+    let mut stats = state.metrics.lock().unwrap();
+    stats.total_requests += 1;
     
     Ok(Json("Verified_Secure_PQC".to_string()))
 }
