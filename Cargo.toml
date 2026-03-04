@@ -2,19 +2,36 @@
 name = "quantum_fortress"
 version = "1.0.0"
 edition = "2021"
+authors = ["Narukihto"]
+description = "A Post-Quantum Secure Gateway with Layered Defense"
 
 [dependencies]
+# Web Framework & Async Runtime
 axum = "0.7"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# Performance & Caching (Replay Protection)
 moka = { version = "0.12", features = ["future"] }
+
+# Post-Quantum Cryptography (NIST Standard)
 pqcrypto-dilithium = "0.7"
-tower = "0.4"
-tower-http = { version = "0.5", features = ["trace"] }
+pqcrypto-traits = "0.3"
+
+# Middleware & Resilience (Rate Limiting, Timeouts, Load Shedding)
+tower = { version = "0.4", features = ["util", "timeout", "load-shed", "limit"] }
+tower-http = { version = "0.5", features = ["trace", "limit", "timeout"] }
 tower-governor = "0.4"
+
+# Logging & Observability
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Security & TLS (For production HTTPS)
 rustls = "0.22"
 tokio-rustls = "0.25"
 axum-server = { version = "0.6", features = ["tls-rustls"] }
+
+# Utilities
+dotenv = "0.15"
