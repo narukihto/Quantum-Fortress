@@ -38,7 +38,7 @@ pub async fn verify(
 ) -> Json<ApiResponse> {
     state.total_requests.fetch_add(1, Ordering::SeqCst);
 
-    // 1. Size Validation
+    // 1. Structural Validation
     if payload.nonce.len() > MAX_NONCE || payload.data.len() > MAX_DATA 
         || payload.public_key.len() != DILITHIUM2_PK || payload.signature.len() != DILITHIUM2_SIG {
         return Json(ApiResponse { status: "error", message: "Invalid payload structure" });
@@ -50,13 +50,13 @@ pub async fn verify(
         return Json(ApiResponse { status: "error", message: "Replay attack detected" });
     }
 
-    // 3. Entropy Check
+    // 3. Entropy Analysis
     if !EntropyScanner::is_secure(&payload.data, MIN_ENTROPY) {
         state.blocked_entropy.fetch_add(1, Ordering::SeqCst);
         return Json(ApiResponse { status: "error", message: "Low entropy payload" });
     }
 
-    // 4. Quantum Signature Verification
+    // 4. PQC Verification
     if !QuantumCrypto::verify_signature(&payload.data, &payload.signature, &payload.public_key) {
         return Json(ApiResponse { status: "error", message: "Invalid signature" });
     }
