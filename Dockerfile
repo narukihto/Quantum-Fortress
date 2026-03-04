@@ -1,36 +1,49 @@
-# Stage 1: Build Stage
-FROM rust:1.75-slim as builder
+# STAGE 1: Planning - Determine dependencies to optimize Docker layer caching
+FROM rust:1.75-slim as planner
+WORKDIR /usr/src/quantum_fortress
+# Install cargo-chef to speed up subsequent builds
+RUN cargo install cargo-chef 
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
 
-# Install system dependencies for PQC libraries
+# STAGE 2: Builder - Compile the application and dependencies
+FROM rust:1.75-slim as builder
+WORKDIR /usr/src/quantum_fortress
+
+# Install necessary system build tools for PQC and OpenSSL
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /usr/src/quantum_fortress
-COPY . .
+# Reuse the dependency recipe from Stage 1
+RUN cargo install cargo-chef
+COPY --from=planner /usr/src/quantum_fortress/recipe.json recipe.json
 
-# Build the release binary
+# Build only the dependencies (this layer is cached)
+RUN cargo chef cook --release --recipe-path recipe.json
+
+# Copy source code and build the final release binary
+COPY . .
 RUN cargo build --release
 
-# Stage 2: Final Runtime Stage
-FROM debian:bookworm-slim
-
-# Install minimal runtime dependencies
-RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# STAGE 3: Runtime - Create a minimal, secure execution environment
+# Using Google's Distroless (cc-debian12) for maximum security (No shell, no tools)
+FROM gcr.io/distroless/cc-debian12
 
 WORKDIR /app
 
-# Copy the binary and the dashboard from the builder stage
+# Copy only the necessary files for runtime from the builder stage
 COPY --from=builder /usr/src/quantum_fortress/target/release/quantum_fortress .
 COPY --from=builder /usr/src/quantum_fortress/dashboard.html .
 
-# Expose the aligned port 3000
+# Standard Environment Variables
+ENV SERVER_PORT=3000
+ENV RUST_LOG=info
+
+# Expose the API and Dashboard port
 EXPOSE 3000
 
-# Start the Quantum Fortress Sentinel
+# Execute the binary as the entry point
 CMD ["./quantum_fortress"]
