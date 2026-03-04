@@ -1,18 +1,18 @@
-use axum::{extract::State, Json};
+use axum::{
+    extract::State,
+    Json,
+    response::IntoResponse,
+    http::StatusCode,
+};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
-
-use crate::{AppState, crypto::QuantumCrypto, entropy::EntropyScanner};
-
-const MAX_NONCE: usize = 128;
-const MAX_DATA: usize = 65_536;
-const DILITHIUM2_PK: usize = 1312;
-const DILITHIUM2_SIG: usize = 2420;
-const MIN_ENTROPY: f64 = 4.5;
+use std::sync::atomic::Ordering;
+use crate::AppState;
+use crate::crypto::QuantumCrypto;
+use crate::entropy::EntropyScanner;
 
 #[derive(Deserialize)]
-pub struct SecurePayload {
+pub struct QuantumRequest {
     pub nonce: String,
     pub data: Vec<u8>,
     pub signature: Vec<u8>,
@@ -20,54 +20,69 @@ pub struct SecurePayload {
 }
 
 #[derive(Serialize)]
-pub struct ApiResponse {
-    pub status: &'static str,
-    pub message: &'static str,
+pub struct QuantumResponse {
+    pub status: String,
+    pub message: String,
 }
 
-#[derive(Serialize)]
-pub struct StatsResponse {
-    pub total_requests: usize,
-    pub blocked_replay: usize,
-    pub blocked_entropy: usize,
-}
-
+/// Core Verification Handler
 pub async fn verify(
     State(state): State<Arc<AppState>>,
-    Json(payload): Json<SecurePayload>,
-) -> Json<ApiResponse> {
+    Json(payload): Json<QuantumRequest>,
+) -> impl IntoResponse {
+    // 1. Increment Total Request Counter immediately upon arrival
     state.total_requests.fetch_add(1, Ordering::SeqCst);
 
-    // 1. Structural Validation
-    if payload.nonce.len() > MAX_NONCE || payload.data.len() > MAX_DATA 
-        || payload.public_key.len() != DILITHIUM2_PK || payload.signature.len() != DILITHIUM2_SIG {
-        return Json(ApiResponse { status: "error", message: "Invalid payload structure" });
-    }
-
-    // 2. Replay Protection
-    if state.nonce_cache.insert(payload.nonce.clone(), ()).await.is_some() {
+    // 2. REPLAY PROTECTION LAYER
+    // Check if nonce exists in the high-speed Moka cache
+    if state.nonce_cache.get(&payload.nonce).await.is_some() {
         state.blocked_replay.fetch_add(1, Ordering::SeqCst);
-        return Json(ApiResponse { status: "error", message: "Replay attack detected" });
+        return (StatusCode::FORBIDDEN, Json(QuantumResponse {
+            status: "error".into(),
+            message: "Replay attack detected: Nonce already used".into(),
+        }));
     }
 
-    // 3. Entropy Analysis
-    if !EntropyScanner::is_secure(&payload.data, MIN_ENTROPY) {
+    // 3. ENTROPY VALIDATION LAYER
+    // Reject low-entropy data to prevent resource exhaustion or malformed injection
+    if !EntropyScanner::is_high_entropy(&payload.data) {
         state.blocked_entropy.fetch_add(1, Ordering::SeqCst);
-        return Json(ApiResponse { status: "error", message: "Low entropy payload" });
+        return (StatusCode::BAD_REQUEST, Json(QuantumResponse {
+            status: "error".into(),
+            message: "Security violation: Low entropy data rejected".into(),
+        }));
     }
 
-    // 4. PQC Verification
-    if !QuantumCrypto::verify_signature(&payload.data, &payload.signature, &payload.public_key) {
-        return Json(ApiResponse { status: "error", message: "Invalid signature" });
+    // 4. POST-QUANTUM CRYPTOGRAPHIC LAYER
+    // Verify the Dilithium2 signature against the message and public key
+    let is_valid = QuantumCrypto::verify_signature(
+        &payload.data,
+        &payload.signature,
+        &payload.public_key,
+    );
+
+    if !is_valid {
+        // Incrementing total requests is enough here, but failed signatures are rejected
+        return (StatusCode::UNAUTHORIZED, Json(QuantumResponse {
+            status: "error".into(),
+            message: "Cryptographic failure: Invalid Quantum Signature".into(),
+        }));
     }
 
-    Json(ApiResponse { status: "success", message: "Verification passed" })
+    // 5. SUCCESS: Register Nonce and grant access
+    state.nonce_cache.insert(payload.nonce, ()).await;
+
+    (StatusCode::OK, Json(QuantumResponse {
+        status: "success".into(),
+        message: "Quantum Verification Successful".into(),
+    }))
 }
 
-pub async fn get_stats(State(state): State<Arc<AppState>>) -> Json<StatsResponse> {
-    Json(StatsResponse {
-        total_requests: state.total_requests.load(Ordering::SeqCst),
-        blocked_replay: state.blocked_replay.load(Ordering::SeqCst),
-        blocked_entropy: state.blocked_entropy.load(Ordering::SeqCst),
-    })
+/// Statistics API for the Dashboard
+pub async fn get_stats(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    Json(serde_json::json!({
+        "total_requests": state.total_requests.load(Ordering::SeqCst),
+        "blocked_replay": state.blocked_replay.load(Ordering::SeqCst),
+        "blocked_entropy": state.blocked_entropy.load(Ordering::SeqCst),
+    }))
 }
