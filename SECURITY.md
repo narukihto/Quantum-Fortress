@@ -14,7 +14,7 @@ Version	Supported
 🐛 Reporting a Vulnerability
 We take every report seriously. If you discover a security vulnerability within this project, please do not open a public issue. Instead, follow the process below:
 
-Email us: Send a detailed report to your-email@example.com (or use GitHub's Private Vulnerability Reporting feature if enabled).
+Email us: Send a detailed report to Issaclex@proton.me (or use GitHub's Private Vulnerability Reporting feature if enabled).
 
 Details to include:
 
