@@ -1,79 +1,61 @@
 import requests
-import concurrent.futures
 import time
 import random
-from collections import Counter
 
 # Configuration
-URL = "http://localhost:3000/v1/quantum-verify"
-THREADS = 20
-TOTAL_REQUESTS = 100
+BASE_URL = "http://localhost:3000"
+VERIFY_ENDPOINT = f"{BASE_URL}/v1/quantum-verify"
+STATS_ENDPOINT = f"{BASE_URL}/api/stats"
 
-# Mock PQC Constants (Aligned with Dilithium2)
-PK_SIZE = 1312
-SIG_SIZE = 2420
+def test_quantum_integrity():
+    print("🚀 Starting Advanced Fortress Validation...")
 
-def generate_quantum_payload(is_replay=False, idx=0):
-    """
-    Generates a payload that simulates a real Post-Quantum signed transaction.
-    """
-    # 1. High-Entropy Data (Simulating an encrypted message)
-    # This must be random to pass your Rust EntropyScanner
-    message_data = [random.randint(0, 255) for _ in range(128)]
-    
-    # 2. Nonce Logic (Testing Replay Protection)
-    nonce = "REPLAY_ATTACK_VECTOR_001" if is_replay else f"unique_tx_{idx}_{time.time_ns()}"
-    
-    # 3. Simulated Valid Structure
-    # In a real scenario, 'signature' would be created using the Secret Key
-    # For testing the 'logic flow', we send bytes that match the required length
-    return {
-        "nonce": nonce,
-        "data": message_data,
-        "signature": [random.randint(0, 255) for _ in range(SIG_SIZE)],
-        "public_key": [random.randint(0, 255) for _ in range(PK_SIZE)]
+    # 1. Test Valid Request (Simulating Dilithium2 data structure)
+    print("\n[1] Testing Valid Quantum Payload...")
+    payload = {
+        "nonce": f"unique_{random.randint(1000, 9999)}",
+        "data": [random.randint(0, 255) for _ in range(32)], # High entropy
+        "signature": [0] * 2420, # Simulated signature size
+        "public_key": [0] * 1312  # Simulated public key size
     }
+    response = requests.post(VERIFY_ENDPOINT, json=payload)
+    print(f"Status: {response.status_code}, Response: {response.json()}")
 
-def send_request(is_replay=False, idx=0):
-    payload = generate_quantum_payload(is_replay, idx)
+    # 2. Test Replay Attack (Sending the same nonce twice)
+    print("\n[2] Testing Replay Attack Defense...")
+    print("Sending same nonce again...")
+    response = requests.post(VERIFY_ENDPOINT, json=payload)
+    if response.status_code == 403:
+        print("✅ SUCCESS: Replay attack blocked with 403 Forbidden.")
+    else:
+        print(f"❌ FAILED: Replay attack returned {response.status_code}")
+
+    # 3. Test Low Entropy Attack (Predictable data)
+    print("\n[3] Testing Low Entropy Defense...")
+    bad_payload = payload.copy()
+    bad_payload["nonce"] = "new_nonce_123"
+    bad_payload["data"] = [0] * 32 # Totally predictable zeros
+    response = requests.post(VERIFY_ENDPOINT, json=bad_payload)
+    if response.status_code == 400:
+        print("✅ SUCCESS: Low entropy data blocked with 400 Bad Request.")
+    else:
+        print(f"❌ FAILED: System accepted low entropy data.")
+
+    # 4. Test Rate Limiting (Spamming requests)
+    print("\n[4] Testing Rate Limiter (Spamming 20 requests)...")
+    for i in range(20):
+        requests.post(VERIFY_ENDPOINT, json=payload)
+    
+    # The last request should likely be blocked or handled by tower-governor
+    print("Rate limit test finished. Check terminal for 'Too Many Requests' errors.")
+
+    # 5. Final Stats Check
+    print("\n[5] Fetching Live SOC Stats...")
+    stats = requests.get(STATS_ENDPOINT).json()
+    print(f"📊 Live Stats: {stats}")
+
+if __name__ == "__main__":
     try:
-        response = requests.post(URL, json=payload, timeout=10)
-        # We categorize the response for the final report
-        return response.status_code, response.json().get("message", "No Message")
+        test_quantum_integrity()
     except Exception as e:
-        return "ERROR", str(e)
-
-print("🛡️  Starting Quantum-Fortress Sentinel Stress Test...")
-print(f"📡 Target: {URL}")
-print(f"🚀 Dispatching {TOTAL_REQUESTS} requests...")
-
-
-
-start_time = time.perf_counter()
-
-results = []
-with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
-    # 50% Unique Requests, 50% Replay Attacks
-    futures = [executor.submit(send_request, is_replay=(i >= TOTAL_REQUESTS//2), idx=i) for i in range(TOTAL_REQUESTS)]
-    for f in concurrent.futures.as_completed(futures):
-        results.append(f.result())
-
-duration = time.perf_counter() - start_time
-
-# Analysis
-status_codes = Counter([r[0] for r in results])
-messages = Counter([r[1] for r in results])
-
-print("\n" + "="*45)
-print("📊 PEN-TEST EXECUTION SUMMARY")
-print("="*45)
-print(f"⏱️  Duration:           {duration:.2f} seconds")
-print(f"✅ Successful Codes:    {dict(status_codes)}")
-print(f"💬 Server Responses:    {dict(messages)}")
-print("="*45)
-
-# Verification Logic
-if messages.get("Replay attack detected") == TOTAL_REQUESTS // 2:
-    print("🏆 VERDICT: Replay Protection is 100% OPERATIONAL.")
-else:
-    print("⚠️  VERDICT: Potential vulnerability in Replay Protection logic.")
+        print(f"❌ Connectivity Error: Is the server running? {e}")
