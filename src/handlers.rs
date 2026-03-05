@@ -10,12 +10,12 @@ use std::sync::atomic::Ordering;
 use crate::AppState;
 use crate::crypto::QuantumCrypto;
 use crate::entropy::EntropyScanner;
-use ethers::prelude::*;
 use sha3::{Sha3_256, Digest};
 use tokio::io::AsyncWriteExt;
+// Specific imports to avoid "unused" warnings
+use ethers::types::Address;
 
 // 1. Generate Bindings from the ABI file
-// This macro creates the VeriPhysContract struct at compile time
 ethers::prelude::abigen!(VeriPhysContract, "./IntegrityLedger.json");
 
 #[derive(Deserialize)]
@@ -40,14 +40,12 @@ pub struct AnchorResponse {
 }
 
 // --- QUANTUM VERIFICATION ---
-// Validates PQC signatures and prevents replay/entropy attacks
 pub async fn verify(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<QuantumRequest>,
 ) -> impl IntoResponse {
     state.total_requests.fetch_add(1, Ordering::SeqCst);
 
-    // A. Replay Protection (Nonce Check)
     if state.nonce_cache.get(&payload.nonce).await.is_some() {
         state.blocked_replay.fetch_add(1, Ordering::SeqCst);
         return (StatusCode::CONFLICT, Json(QuantumResponse {
@@ -57,7 +55,6 @@ pub async fn verify(
     }
     state.nonce_cache.insert(payload.nonce, ()).await;
 
-    // B. Entropy Filter (Malformed Data/Injection detection)
     if !EntropyScanner::is_high_entropy(&payload.data) {
         state.blocked_entropy.fetch_add(1, Ordering::SeqCst);
         return (StatusCode::BAD_REQUEST, Json(QuantumResponse {
@@ -66,7 +63,6 @@ pub async fn verify(
         })).into_response();
     }
 
-    // C. PQC Validation (Dilithium2)
     if QuantumCrypto::verify_signature(&payload.data, &payload.signature, &payload.public_key) {
         (StatusCode::OK, Json(QuantumResponse {
             status: "verified".into(),
@@ -81,7 +77,6 @@ pub async fn verify(
 }
 
 // --- BLOCKCHAIN ANCHORING ---
-// Creates a SHA3-256 hash of a file and anchors it to the Ethereum ledger
 pub async fn anchor_content(
     State(state): State<Arc<AppState>>,
     mut multipart: Multipart,
@@ -89,7 +84,6 @@ pub async fn anchor_content(
     let mut file_name = String::from("unknown");
     let mut data = Vec::new();
 
-    // Securely extract file data from the stream
     while let Ok(Some(field)) = multipart.next_field().await {
         if field.name() == Some("file") {
             file_name = field.file_name().unwrap_or("unnamed").to_string();
@@ -102,12 +96,10 @@ pub async fn anchor_content(
         return Err((StatusCode::BAD_REQUEST, "File is empty or missing".into())); 
     }
 
-    // 1. Generate SHA3-256 Fingerprint
     let hash_bytes: [u8; 32] = Sha3_256::digest(&data).into();
     let hash_hex = hex::encode(hash_bytes);
 
-    // 2. Blockchain Interaction (Fixed Lifetime Error E0716)
-    // We bind the call to a variable to ensure it lives long enough for the await
+    // Fixed Lifetime Error E0716 by using explicit variable binding
     let contract_call = state.contract.anchor_content(hash_bytes);
     let pending_tx = contract_call.send().await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Chain Error: {}", e)))?;
@@ -116,7 +108,6 @@ pub async fn anchor_content(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .ok_or((StatusCode::INTERNAL_SERVER_ERROR, "Transaction failed to reach finality".to_string()))?;
 
-    // 3. Log to Local Audit Registry (Async Non-blocking)
     let log_entry = format!("{},{}\n", file_name, hash_hex);
     if let Ok(mut f) = tokio::fs::OpenOptions::new().append(true).create(true).open(&state.registry_path).await {
         let _ = f.write_all(log_entry.as_bytes()).await;
