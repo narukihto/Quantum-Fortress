@@ -52,7 +52,7 @@
         .stat-card .val { font-size: 2.5rem; font-weight: 800; margin-top: 15px; }
         .stat-card .label { color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; }
         .stat-card .icon { position: absolute; right: 20px; top: 20px; font-size: 1.8rem; opacity: 0.3; }
-        
+
         /* Interactive Sections */
         .dashboard-layout { display: grid; grid-template-columns: 2fr 1.2fr; gap: 20px; }
         .panel { background-color: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; }
@@ -155,11 +155,9 @@
                 <div id="log-viewport" class="log-viewport"></div>
             </div>
         </div>
-
     </main>
 
 <script>
-    // --- Global Chart Configuration ---
     Chart.defaults.color = '#8b949e';
     Chart.defaults.font.family = "'Inter', sans-serif";
 
@@ -197,14 +195,12 @@
             const response = await fetch('/stats');
             const data = await response.json();
 
-            // Stats Update
             document.getElementById('blocked_total').innerText = data.blocked_replay + data.blocked_entropy;
             
-            // CPU Simulation (Since real CPU needs special sys-info binding)
-            const simulatedCPU = Math.floor(Math.random() * (15 - 5 + 1)) + 5;
+            // CPU Simulation Logic
+            const simulatedCPU = Math.floor(Math.random() * (12 - 4 + 1)) + 4;
             document.getElementById('cpu_val').innerText = simulatedCPU + "%";
 
-            // Logging Logic
             if (data.blocked_replay > lastReplayCount) {
                 addLogEntry(`🛡️ [Vault] Mitigated Replay Attack. Nonce blacklisted.`, 'warning');
                 lastReplayCount = data.blocked_replay;
@@ -214,19 +210,18 @@
                 lastEntropyCount = data.blocked_entropy;
             }
 
-            // Chart Update
             const now = new Date().toLocaleTimeString('en-US', { hour12: false });
             trafficChart.data.labels.push(now);
             trafficChart.data.datasets[0].data.push(data.total_requests);
             trafficChart.data.datasets[1].data.push(data.blocked_replay + data.blocked_entropy);
-            if(trafficChart.data.labels.length > 20) { trafficChart.data.labels.shift(); trafficChart.data.datasets[0].data.shift(); }
+            if(trafficChart.data.labels.length > 20) { trafficChart.data.labels.shift(); trafficChart.data.datasets[0].data.shift(); trafficChart.data.datasets[1].data.shift(); }
             trafficChart.update('none');
 
             defensePieChart.data.datasets[0].data = [data.blocked_replay + 1, data.blocked_entropy + 1, 2, 1];
             defensePieChart.update('none');
 
         } catch(error) {
-            console.error("Connection Interrupted");
+            console.error("Heartbeat lost.");
         }
     }
 
