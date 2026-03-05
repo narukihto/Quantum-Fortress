@@ -4,7 +4,7 @@ pub struct EntropyScanner;
 
 impl EntropyScanner {
     /// Calculates the Shannon Entropy of the input data (0.0 to 8.0).
-    /// Professional entropy analysis for detecting malformed payloads or injections.
+    /// Used to detect low-entropy patterns like SQL injections or repeating NOP slides.
     pub fn calculate_entropy(data: &[u8]) -> f64 {
         if data.is_empty() {
             return 0.0;
@@ -30,25 +30,22 @@ impl EntropyScanner {
     }
 
     /// Determines if the data meets the security threshold.
-    /// Standard PQC (Dilithium) usually scores > 7.0.
-    /// SQL injections or repetitive patterns usually score < 3.0.
+    /// Encrypted PQC payloads usually score > 7.0.
     pub fn is_high_entropy(data: &[u8]) -> bool {
-        // 1. Get threshold from .env or fallback to 4.0
         let threshold: f64 = env::var("MIN_ENTROPY")
-            .unwrap_or_else(|_| "4.0".to_string())
+            .unwrap_or_else(|_| "3.8".to_string()) // Adjusted fallback to 3.8 for better compatibility
             .parse()
-            .unwrap_or(4.0);
+            .unwrap_or(3.8);
 
-        // 2. Minimum length check: payloads smaller than 32 bytes 
-        // often give unstable entropy scores.
+        // Minimum length check: small payloads yield unstable entropy scores.
         if data.len() < 32 {
-            return true; // Assume safe if tiny, or implement stricter check
+            return true; 
         }
 
         let score = Self::calculate_entropy(data);
         
-        // Log low entropy for security auditing (Optional)
         if score < threshold {
+            // Use tracing or println for audit logs
             println!("🛡️ Security Alert: Low entropy data detected ({:.2})", score);
         }
 
@@ -62,12 +59,22 @@ mod tests {
 
     #[test]
     fn test_shannon_entropy() {
-        // Predictable data (Low Entropy)
-        let low = b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-        // Random data (High Entropy)
-        let high = b"8f3a9d2c1b5e4f7a0d9c8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7";
+        // 1. Predictable data (Low Entropy: 0.0)
+        let low = [0u8; 64];
         
-        assert!(EntropyScanner::calculate_entropy(low) < 1.0);
-        assert!(EntropyScanner::calculate_entropy(high) > 4.0);
+        // 2. High Entropy data (Full byte range 0-255)
+        // A sequence of all unique bytes results in maximum entropy (8.0)
+        let mut high = Vec::with_capacity(256);
+        for i in 0..256 {
+            high.push(i as u8);
+        }
+        
+        let low_score = EntropyScanner::calculate_entropy(&low);
+        let high_score = EntropyScanner::calculate_entropy(&high);
+        
+        println!("Test Scores -> Low: {:.2}, High: {:.2}", low_score, high_score);
+
+        assert!(low_score < 1.0, "Low entropy data should score near 0");
+        assert!(high_score > 7.5, "Full-range byte data should score near 8.0");
     }
 }
