@@ -1,49 +1,52 @@
-# STAGE 1: Planning - Determine dependencies to optimize Docker layer caching
+# STAGE 1: Planning - Generate dependency recipe
 FROM rust:1.75-slim as planner
 WORKDIR /usr/src/quantum_fortress
-# Install cargo-chef to speed up subsequent builds
 RUN cargo install cargo-chef 
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
-# STAGE 2: Builder - Compile the application and dependencies
+# STAGE 2: Builder - Compile with PQC system dependencies
 FROM rust:1.75-slim as builder
 WORKDIR /usr/src/quantum_fortress
 
-# Install necessary system build tools for PQC and OpenSSL
+# Install critical build tools for Dilithium (C-based PQC) and OpenSSL
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
     build-essential \
+    cmake \
+    clang \
     && rm -rf /var/lib/apt/lists/*
 
-# Reuse the dependency recipe from Stage 1
 RUN cargo install cargo-chef
 COPY --from=planner /usr/src/quantum_fortress/recipe.json recipe.json
 
-# Build only the dependencies (this layer is cached)
+# Build only dependencies to maximize Docker layer caching
 RUN cargo chef cook --release --recipe-path recipe.json
 
-# Copy source code and build the final release binary
+# Copy source code and perform the final production build
 COPY . .
 RUN cargo build --release
 
-# STAGE 3: Runtime - Create a minimal, secure execution environment
-# Using Google's Distroless (cc-debian12) for maximum security (No shell, no tools)
+# STAGE 3: Runtime - Highly secure minimal environment
 FROM gcr.io/distroless/cc-debian12
 
 WORKDIR /app
 
-# Copy only the necessary files for runtime from the builder stage
+# Copy the compiled binary
 COPY --from=builder /usr/src/quantum_fortress/target/release/quantum_fortress .
-COPY --from=builder /usr/src/quantum_fortress/dashboard.html .
 
-# Standard Environment Variables
+# Copy essential runtime assets (Dashboard & Blockchain ABI)
+COPY --from=builder /usr/src/quantum_fortress/dashboard.html .
+COPY --from=builder /usr/src/quantum_fortress/IntegrityLedger.json .
+
+# Default Environment Configuration
 ENV SERVER_PORT=3000
 ENV RUST_LOG=info
+ENV MIN_ENTROPY=3.8
 
-# Expose the API and Dashboard port
+# Expose Service Port
 EXPOSE 3000
 
-# Execute the binary as the entry point
+# Run the fortress gateway
 CMD ["./quantum_fortress"]
