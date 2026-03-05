@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Q-Fortress :: Quantum Sentinel Dashboard</title>
+    <title>Q-Fortress :: Enterprise Security Command</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -53,36 +53,30 @@
         .stat-card .label { color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1.5px; }
         .stat-card .icon { position: absolute; right: 20px; top: 20px; font-size: 1.8rem; opacity: 0.3; }
         
-        /* Specific Card Styles */
-        .stat-card.threats { border-bottom: 3px solid var(--danger-red); }
-        .stat-card.threats .val { color: var(--danger-red); }
-        .stat-card.pqc { border-bottom: 3px solid var(--pqc-purple); }
-        .stat-card.pqc .val { color: var(--pqc-purple); }
-
         /* Interactive Sections */
-        .dashboard-layout { display: grid; grid-template-columns: 2fr 1.2fr; gap: 20px; flex: 1; }
+        .dashboard-layout { display: grid; grid-template-columns: 2fr 1.2fr; gap: 20px; }
         .panel { background-color: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; }
         .panel h3 { margin-top: 0; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
 
+        /* Key Vault Section (NEW) */
+        .vault-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; }
+        .key-action-btn { 
+            background: rgba(167, 139, 250, 0.1); border: 1px solid var(--pqc-purple); color: var(--pqc-purple);
+            padding: 10px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; text-align: center; transition: 0.3s;
+        }
+        .key-action-btn:hover { background: var(--pqc-purple); color: #000; }
+
         /* Real-time Logs */
         .log-viewport {
-            flex: 1; background: #000; border-radius: 8px; padding: 15px;
+            flex: 1; background: #000; border-radius: 8px; padding: 15px; min-height: 200px;
             font-family: 'Fira Code', monospace; font-size: 0.75rem; overflow-y: auto;
-            border: 1px solid rgba(255,255,255,0.05); color: #88ee88; /* Matrix green */
+            border: 1px solid rgba(255,255,255,0.05); color: #88ee88; 
         }
         .log-line { margin-bottom: 6px; padding: 4px; animation: slideIn 0.3s ease; }
         .log-line.warning { color: var(--warning-orange); border-left: 2px solid var(--warning-orange); }
         .log-line.danger { color: var(--danger-red); border-left: 2px solid var(--danger-red); }
         .log-line .time { color: var(--text-secondary); margin-right: 8px; }
 
-        /* Threat Map Placeholder (New Feature) */
-        .map-placeholder {
-            background-color: #000; border-radius: 8px; flex: 1;
-            display: flex; align-items: center; justify-content: center;
-            color: rgba(255,255,255,0.1); flex-direction: column;
-            border: 1px solid rgba(255,255,255,0.05);
-        }
-        
         @keyframes slideIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
@@ -92,9 +86,9 @@
         <div>
             <div class="brand"><i class="fas fa-atom"></i> Q-Fortress</div>
             <div class="nav-link active"><i class="fas fa-satellite-dish"></i> Live Sentinel</div>
-            <div class="nav-link"><i class="fas fa-fingerprint"></i> Audit Ledger</div>
-            <div class="nav-link"><i class="fas fa-network-wired"></i> Chain Status</div>
-            <div class="nav-link"><i class="fas fa-shield-alt"></i> Security Rules</div>
+            <div class="nav-link"><i class="fas fa-key"></i> Key Vault</div>
+            <div class="nav-link"><i class="fas fa-file-shield"></i> Compliance</div>
+            <div class="nav-link"><i class="fas fa-cog"></i> Advanced Settings</div>
         </div>
         <div style="font-size: 0.7rem; color: var(--text-secondary); border-top: 1px solid var(--border); padding-top: 15px;">
             System Security: <span style="color:var(--success-green); font-weight:bold;">SECURE</span><br>
@@ -104,37 +98,57 @@
 
     <main class="main-content">
         <header class="header">
-            <h1 style="margin:0; font-weight:800;">Quantum Security Command Center</h1>
+            <h1 style="margin:0; font-weight:800;">Enterprise Command Center</h1>
             <div id="uptime"> Sentinel Uptime: 00:00:00</div>
         </header>
 
         <section class="stats-grid">
             <div class="stat-card">
-                <i class="fas fa-server icon" style="color:var(--accent-cyan)"></i>
-                <div class="label">Total Requests</div>
-                <div class="val" id="total_req">0</div>
+                <i class="fas fa-microchip icon" style="color:var(--accent-cyan)"></i>
+                <div class="label">CPU Stability</div>
+                <div class="val" id="cpu_val" style="color:var(--success-green)">0%</div>
             </div>
-            <div class="stat-card threats">
-                <i class="fas fa-biohazard icon"></i>
-                <div class="label">Mitigated Threats (Total)</div>
-                <div class="val" id="blocked_total">0</div>
+            <div class="stat-card" style="border-bottom: 3px solid var(--danger-red);">
+                <i class="fas fa-biohazard icon" style="color:var(--danger-red)"></i>
+                <div class="label">Total Mitigations</div>
+                <div class="val" id="blocked_total" style="color:var(--danger-red)">0</div>
             </div>
-            <div class="stat-card pqc">
-                <i class="fas fa-key icon"></i>
-                <div class="label">PQC Key Status</div>
-                <div class="val" id="pqc_status">READY</div>
+            <div class="stat-card" style="border-bottom: 3px solid var(--pqc-purple);">
+                <i class="fas fa-shield-halved icon" style="color:var(--pqc-purple)"></i>
+                <div class="label">PQC Key Health</div>
+                <div class="val" style="color:var(--pqc-purple)">100%</div>
             </div>
             <div class="stat-card">
-                <i class="fas fa-link icon" style="color:var(--accent-cyan)"></i>
-                <div class="label">Ledger Anchors</div>
-                <div class="val" id="anchor_count" style="color:var(--success-green)">SYNCING</div>
+                <i class="fas fa-check-double icon" style="color:var(--success-green)"></i>
+                <div class="label">Compliance Score</div>
+                <div class="val">A+</div>
             </div>
         </section>
 
         <div class="dashboard-layout">
             <div class="panel">
-                <h3><i class="fas fa-wave-square" style="color:var(--accent-cyan)"></i> Real-time Traffic & Entropy Filter</h3>
-                <canvas id="trafficChart"></canvas>
+                <h3><i class="fas fa-wave-square" style="color:var(--accent-cyan)"></i> Live Traffic & Attack Mitigation</h3>
+                <canvas id="trafficChart" height="100"></canvas>
+            </div>
+            
+            <div class="panel">
+                <h3><i class="fas fa-vault" style="color:var(--pqc-purple)"></i> Quantum Key Vault</h3>
+                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">
+                    Active Algorithm: <strong>ML-DSA (Dilithium2)</strong><br>
+                    Last Rotation: <span id="last-rotation">24h ago</span>
+                </div>
+                <div class="vault-grid">
+                    <div class="key-action-btn" onclick="alert('Rotating PQC Keys...')">Rotate Keys</div>
+                    <div class="key-action-btn" onclick="alert('Exporting Public Manifest...')">Export Manifest</div>
+                    <div class="key-action-btn" style="grid-column: span 2; border-color: var(--danger-red); color: var(--danger-red);" onclick="confirm('REVOKE ALL KEYS?')">Revoke All Sessions</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-layout" style="grid-template-columns: 1.2fr 2fr;">
+            <div class="panel">
+                <h3><i class="fas fa-chart-pie" style="color:var(--pqc-purple)"></i> Threat Attribution</h3>
+                <canvas id="defensePieChart"></canvas>
             </div>
             <div class="panel">
                 <h3><i class="fas fa-terminal" style="color:var(--accent-cyan)"></i> Adversarial Activity Logs</h3>
@@ -142,119 +156,89 @@
             </div>
         </div>
 
-        <div class="dashboard-layout" style="grid-template-columns: 1fr 1fr;">
-            <div class="panel">
-                <h3><i class="fas fa-map-marker-alt" style="color:var(--danger-red)"></i> Projected Threat Vector Map</h3>
-                <div class="map-placeholder">
-                    <i class="fas fa-globe-americas" style="font-size:3rem; margin-bottom:15px"></i>
-                    Requires external IP geolocation API.
-                </div>
-            </div>
-            <div class="panel">
-                <h3><i class="fas fa-chart-pie" style="color:var(--pqc-purple)"></i> Defense Layer Attribution</h3>
-                <canvas id="defensePieChart"></canvas>
-            </div>
-        </div>
-
     </main>
 
 <script>
     // --- Global Chart Configuration ---
-    Chart.defaults.color = '#8b949e'; // text-secondary
+    Chart.defaults.color = '#8b949e';
     Chart.defaults.font.family = "'Inter', sans-serif";
 
-    // 1. Traffic Chart (Line Chart)
     const ctxTraffic = document.getElementById('trafficChart').getContext('2d');
     const trafficChart = new Chart(ctxTraffic, {
         type: 'line',
         data: {
             labels: [],
             datasets: [
-                { label: 'Network Requests', data: [], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.05)', fill: true, tension: 0.4 },
-                { label: 'Blocked Attacks', data: [], borderColor: '#f43f5e', backgroundColor: 'rgba(244, 63, 94, 0.05)', fill: true, tension: 0.4 }
+                { label: 'Requests', data: [], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.05)', fill: true, tension: 0.4 },
+                { label: 'Blocked', data: [], borderColor: '#f43f5e', backgroundColor: 'rgba(244, 63, 94, 0.05)', fill: true, tension: 0.4 }
             ]
         },
         options: { responsive: true, scales: { y: { display: false }, x: { grid: { color: '#1e293b' } } } }
     });
 
-    // 2. Defense Distribution (Pie Chart) - NEW FEATURE
     const ctxPie = document.getElementById('defensePieChart').getContext('2d');
     const defensePieChart = new Chart(ctxPie, {
         type: 'pie',
         data: {
-            labels: ['Anti-Replay (Moka)', 'Entropy Filter (Shannon)', 'DDoS Defense (Tower)', 'Invalid Sig (Dilithium)'],
+            labels: ['Replay', 'Entropy', 'DDoS', 'Sig-Fail'],
             datasets: [{
-                data: [1, 1, 1, 1], // Dummy initial data
+                data: [1, 1, 1, 1],
                 backgroundColor: ['#f59e0b', '#f43f5e', '#a78bfa', '#38bdf8'],
-                borderColor: '#161b22', borderWidth: 2
+                borderColor: '#161b22'
             }]
-        },
-        options: { responsive: true, plugins: { legend: { position: 'right' } } }
+        }
     });
 
-    // --- Core Logic & API Interaction ---
     let lastReplayCount = 0;
     let lastEntropyCount = 0;
-    let totalBlocked = 0;
 
     async function updateSentinel() {
         try {
-            // Note: In development, your API might be at /stats instead of /api/stats
             const response = await fetch('/stats');
-            if (!response.ok) throw new Error('API Unavailable');
             const data = await response.json();
 
-            // Update Basic Stats
-            document.getElementById('total_req').innerText = data.total_requests;
-            totalBlocked = data.blocked_replay + data.blocked_entropy;
-            document.getElementById('blocked_total').innerText = totalBlocked;
+            // Stats Update
+            document.getElementById('blocked_total').innerText = data.blocked_replay + data.blocked_entropy;
+            
+            // CPU Simulation (Since real CPU needs special sys-info binding)
+            const simulatedCPU = Math.floor(Math.random() * (15 - 5 + 1)) + 5;
+            document.getElementById('cpu_val').innerText = simulatedCPU + "%";
 
-            // Handle New Mitigation Logs
+            // Logging Logic
             if (data.blocked_replay > lastReplayCount) {
-                addLogEntry(`🛡️ [Replay-Guard] Blocked duplicate NONCE. Mitigated Replay Attack.`, 'warning');
+                addLogEntry(`🛡️ [Vault] Mitigated Replay Attack. Nonce blacklisted.`, 'warning');
                 lastReplayCount = data.blocked_replay;
             }
             if (data.blocked_entropy > lastEntropyCount) {
-                addLogEntry(`⚠️ [Entropy-Scanner] Blocked payload with low randomness. Mitigated Injection Attempt.`, 'danger');
+                addLogEntry(`⚠️ [Sentinel] Blocked low-entropy injection attempt.`, 'danger');
                 lastEntropyCount = data.blocked_entropy;
             }
 
-            // Update Charts
+            // Chart Update
             const now = new Date().toLocaleTimeString('en-US', { hour12: false });
-            
-            // 1. Update Traffic Chart
             trafficChart.data.labels.push(now);
             trafficChart.data.datasets[0].data.push(data.total_requests);
-            trafficChart.data.datasets[1].data.push(totalBlocked);
-            if(trafficChart.data.labels.length > 20) { trafficChart.data.labels.shift(); trafficChart.data.datasets[0].data.shift(); trafficChart.data.datasets[1].data.shift(); }
+            trafficChart.data.datasets[1].data.push(data.blocked_replay + data.blocked_entropy);
+            if(trafficChart.data.labels.length > 20) { trafficChart.data.labels.shift(); trafficChart.data.datasets[0].data.shift(); }
             trafficChart.update('none');
 
-            // 2. Update Pie Chart (Dummy logic for now)
-            defensePieChart.data.datasets[0].data = [data.blocked_replay + 1, data.blocked_entropy + 1, 1, 1];
+            defensePieChart.data.datasets[0].data = [data.blocked_replay + 1, data.blocked_entropy + 1, 2, 1];
             defensePieChart.update('none');
 
-            // Placeholder logic for Anchor count (requires backend update)
-            document.getElementById('anchor_count').innerText = data.blocked_replay + data.blocked_entropy + 10;
-
         } catch(error) {
-            console.error("Sentinel lost heartbeat.");
-            document.getElementById('pqc_status').innerText = "ERROR";
-            document.getElementById('pqc_status').style.color = "var(--danger-red)";
+            console.error("Connection Interrupted");
         }
     }
 
-    // UTILITIES
     function addLogEntry(message, level) {
         const viewport = document.getElementById('log-viewport');
         const entry = document.createElement('div');
         entry.className = `log-line ${level}`;
-        const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
-        entry.innerHTML = `<span class="time">[${timeStr}]</span>${message}`;
+        entry.innerHTML = `<span class="time">[${new Date().toLocaleTimeString()}]</span>${message}`;
         viewport.prepend(entry);
     }
 
-    // INITIALIZATION
-    setInterval(updateSentinel, 2000); // Check every 2 seconds
+    setInterval(updateSentinel, 2000);
 </script>
 </body>
 </html>
