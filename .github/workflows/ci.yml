@@ -6,31 +6,24 @@ on:
   pull_request:
     branches: [ "main" ]
 
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
-  build_and_test:
+  test:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v3
-
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y pkg-config libssl-dev build-essential
 
     - name: Set up Rust
       uses: dtolnay/rust-toolchain@stable
 
-    - name: Create Dummy ABI file
-      # This is critical because abigen! needs the JSON to compile
+    - name: Install System Dependencies
+      run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev build-essential
+
+    - name: Create ABI Dummy for Compilation
       run: |
-        echo '[]' > IntegrityLedger.json 
+        echo '[{"inputs":[{"internalType":"bytes32","name":"_hash","type":"bytes32"}],"name":"anchorContent","outputs":[],"stateMutability":"nonpayable","type":"function"}]' > IntegrityLedger.json
 
-    - name: Build
-      run: cargo build --verbose
+    - name: Check Build
+      run: cargo check --verbose
 
-    - name: Run Tests
+    - name: Run Unit Tests
       run: cargo test --verbose
