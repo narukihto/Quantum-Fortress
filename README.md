@@ -37,7 +37,6 @@ Threat Tracking: Atomic counters for blocked replay and entropy violations.
 
 Enterprise-Ready: Dedicated sections for Quantum Key Vault and Compliance Scoring.
 
-Access Link: Once deployed, visit http://localhost:3000/dashboard.html
 
 🚀 Deployment & Hardening
 Production-Ready Environment
