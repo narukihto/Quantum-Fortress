@@ -14,7 +14,7 @@ use ethers::prelude::*;
 use sha3::{Sha3_256, Digest};
 use tokio::io::AsyncWriteExt;
 
-// 1. Generate Bindings (Ensure IntegrityLedger.json is in your root)
+// 1. Generate Bindings (Ensure IntegrityLedger.json is in your root directory)
 ethers::prelude::abigen!(VeriPhysContract, "./IntegrityLedger.json");
 
 #[derive(Deserialize)]
@@ -45,22 +45,22 @@ pub async fn verify(
 ) -> impl IntoResponse {
     state.total_requests.fetch_add(1, Ordering::SeqCst);
 
-    // 1. Replay Attack Prevention
+    // 1. Replay Attack Prevention (Temporal Gate)
     if state.nonce_cache.get(&payload.nonce).await.is_some() {
         state.blocked_replay.fetch_add(1, Ordering::SeqCst);
         return (StatusCode::CONFLICT, Json(QuantumResponse {
             status: "blocked".into(),
-            message: "Replay attack detected: Nonce already used.".into(),
+            message: "Replay attack detected: Nonce has already been consumed.".into(),
         })).into_response();
     }
     state.nonce_cache.insert(payload.nonce, ()).await;
 
-    // 2. Behavioral Entropy Analysis
+    // 2. Behavioral Entropy Analysis (Injection Shield)
     if !EntropyScanner::is_high_entropy(&payload.data) {
         state.blocked_entropy.fetch_add(1, Ordering::SeqCst);
         return (StatusCode::BAD_REQUEST, Json(QuantumResponse {
             status: "rejected".into(),
-            message: "Payload rejected: Low entropy pattern detected (Potential Injection).".into(),
+            message: "Payload rejected: Low entropy pattern detected (Potential Malformed Data).".into(),
         })).into_response();
     }
 
@@ -74,12 +74,12 @@ pub async fn verify(
     if is_valid {
         (StatusCode::OK, Json(QuantumResponse {
             status: "verified".into(),
-            message: "Quantum signature validated successfully.".into(),
+            message: "Quantum-grade signature validated successfully.".into(),
         })).into_response()
     } else {
         (StatusCode::UNAUTHORIZED, Json(QuantumResponse {
             status: "failed".into(),
-            message: "Invalid quantum signature: Integrity compromise.".into(),
+            message: "Quantum signature invalid: Cryptographic integrity compromise.".into(),
         })).into_response()
     }
 }
@@ -92,7 +92,7 @@ pub async fn anchor_content(
     let mut file_name = String::from("unknown");
     let mut data = Vec::new();
 
-    // Extract file from Multipart stream
+    // Secure extraction of multipart data stream
     while let Ok(Some(field)) = multipart.next_field().await {
         if field.name() == Some("file") {
             file_name = field.file_name().unwrap_or("unnamed").to_string();
@@ -101,21 +101,21 @@ pub async fn anchor_content(
     }
 
     if data.is_empty() { 
-        return Err((StatusCode::BAD_REQUEST, "Zero-byte file rejected".into())); 
+        return Err((StatusCode::BAD_REQUEST, "Payload Error: Zero-byte file rejected.".into())); 
     }
 
-    // 1. Generate SHA3-256 Physical Fingerprint
+    // 1. Generate SHA3-256 Physical Fingerprint (FIPS 202)
     let hash_bytes: [u8; 32] = Sha3_256::digest(&data).into();
     let hash_hex = hex::encode(hash_bytes);
 
-    // 2. Transmit to Blockchain Ledger (Ethers-rs)
+    // 2. Immutable Anchoring via Ethers-rs
     let tx = state.contract.anchor_content(hash_bytes).send().await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Blockchain Communication Error: {}", e)))?;
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Blockchain Ledger Error: {}", e)))?;
     
     let receipt = tx.await.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-        .ok_or((StatusCode::INTERNAL_SERVER_ERROR, "Transaction failed to confirm on-chain".to_string()))?;
+        .ok_or((StatusCode::INTERNAL_SERVER_ERROR, "Transaction failed to reach finality.".to_string()))?;
 
-    // 3. Audit Logging (Asynchronous)
+    // 3. Local Audit Log (Async Non-blocking)
     let log_entry = format!("{},{}\n", file_name, hash_hex);
     let mut f = tokio::fs::OpenOptions::new().append(true).create(true).open(&state.registry_path).await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
@@ -135,6 +135,6 @@ pub async fn get_stats(State(state): State<Arc<AppState>>) -> impl IntoResponse 
         "blocked_replay": state.blocked_replay.load(Ordering::SeqCst),
         "blocked_entropy": state.blocked_entropy.load(Ordering::SeqCst),
         "system_status": "Operational",
-        "pqc_standard": "ML-DSA (Dilithium2)"
+        "pqc_standard": "Dilithium2 (ML-DSA)"
     }))
 }
