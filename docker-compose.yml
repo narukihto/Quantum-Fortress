@@ -2,15 +2,21 @@ version: '3.8'
 
 services:
   quantum-fortress:
-    build: .
+    build: 
+      context: .
+      dockerfile: Dockerfile
     container_name: quantum_fortress_sentinel
-    # Use environment variables with sensible defaults
+    
+    # Port Mapping with fallback
     ports:
       - "${SERVER_PORT:-3000}:3000"
+    
+    # Load security configurations from .env
     env_file:
       - .env
     
     # --- Resource Defense Strategy ---
+    # Prevents Resource Exhaustion attacks (DoS)
     deploy:
       resources:
         limits:
@@ -19,23 +25,30 @@ services:
     
     # --- Self-Healing Strategy ---
     restart: always 
-    
-    # NOTE: Healthcheck with 'curl' will fail on Distroless images.
-    # We rely on the Rust binary's internal panic handling and Docker's restart policy.
-    # Or you can use a gRPC health probe if implemented.
 
+    # --- Persistent Data & Audit Logs ---
+    # Map the audit log file so it persists even if the container restarts
+    volumes:
+      - ./audit_log.csv:/app/audit_log.csv
+    
     # --- Hardened Security Layers ---
     security_opt:
-      - no-new-privileges:true # Prevents processes from gaining new privileges
+      - no-new-privileges:true 
     cap_drop:
-      - ALL # Drops all Linux capabilities (Extreme security)
-    read_only: false # Set to true if your app doesn't need to write to disk
+      - ALL 
+    # Since we use an audit log file, we keep read_only: false 
+    # but restrict it using tmpfs for temporary overhead
     tmpfs:
-      - /tmp # Allow memory-based temp files only
+      - /tmp 
     
     # --- Logging Security ---
+    # Prevents log injection or disk fill attacks
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+
+networks:
+  default:
+    name: quantum_secure_net
