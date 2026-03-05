@@ -21,12 +21,12 @@ Action: Validates unique nonces in < 1ms. This kills replay attacks instantly, e
 3. Entropy Behavioral Scanner
 Algorithm: Custom Shannon Entropy Calculation.
 
-Action: Analyzes the mathematical randomness of payloads. It detects and blocks low-entropy data often found in SQL injections, obfuscated scripts, and automated bot traffic.
+Action: Analyzes the mathematical randomness of payloads. It detects and blocks low-entropy data often found in SQL injections and obfuscated scripts.
 
 4. PQC Vault (Quantum Resistance)
 Algorithm: ML-DSA (Dilithium2).
 
-Action: Verifies digital signatures using lattice-based mathematics. This provides a level of identity authenticity that even the most powerful quantum computers cannot forge.
+Action: Verifies digital signatures using lattice-based mathematics. This provides identity authenticity that even the most powerful quantum computers cannot forge.
 
 📊 Tactical Command Center (SOC)
 QuantumFortress features a built-in, real-time dashboard for tactical monitoring.
@@ -35,13 +35,13 @@ Live Metrics: Monitor Requests Per Second (RPS) and latency.
 
 Threat Tracking: Atomic counters for blocked replay and entropy violations.
 
-Zero-Overhead: Powered by AtomicUsize for lock-free performance.
+Enterprise-Ready: Dedicated sections for Quantum Key Vault and Compliance Scoring.
 
 Access Link: Once deployed, visit http://localhost:3000/dashboard.html
 
 🚀 Deployment & Hardening
 Production-Ready Environment
-Our Distroless Docker Architecture ensures the smallest possible attack surface.
+Our Distroless Docker Architecture ensures the smallest possible attack surface (No Shell, No Package Manager).
 
 Bash
 
@@ -51,15 +51,6 @@ cd Quantum-Fortress
 
 # Deploy with Docker Compose (Hardened)
 docker-compose up -d --build
-Technical Stack
-Language: Rust (Memory Safe, Zero-Cost Abstractions)
-
-Runtime: Tokio (High-Performance Async)
-
-Container: Google Distroless (No shell, No vulnerabilities)
-
-PQC Engine: pqcrypto-dilithium (Lattice-based)
-
 🛡️ Security Audit & Hardening Status
 Threat Vector	Defense Mechanism	Status
 Quantum Attacks	ML-DSA (Lattice-based)	IMMUNE ✅
@@ -67,15 +58,28 @@ Replay Attacks	Moka-backed Nonce Registry	BLOCKED ✅
 Memory Exploits	Rust Ownership Model	ELIMINATED ✅
 Container Breakout	Distroless + Cap Drop	HARDENED ✅
 Payload Injection	Shannon Entropy Threshold	FILTERED ✅
-Audit Compliance	Persistent CSV Logging	LOGGED ✅
 
+التصدير إلى "جداول بيانات Google"
 
-🗺️ Strategic Roadmap
-[ ] Multi-Algorithm Support: Adding Falcon & SPHINCS+.
+📜 License & Commercial Terms
+Open Source Protocol
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
 
-[ ] Kyber KEM: Quantum-safe key exchange integration.
+Important: The AGPL-3.0 requires that if you run a modified version of this software as a service (SaaS), you must make your source code available to your users.
 
-[ ] Wasm Edge Support: Running the gateway in lightweight WASM runtimes.
+Commercial & Enterprise Licensing
+The AGPL-3.0 is a strong "copyleft" license. If your organization (e.g., Centralized Exchanges, Banks, FinTech) wishes to:
 
-📜 License
-Licensed under the MIT License. Built for the future of a secure internet.
+Integrate QuantumFortress into proprietary/closed-source platforms.
+
+Avoid the AGPL-3.0 source code disclosure requirements.
+
+Receive custom integration and dedicated security support.
+
+Please contact the author for a Private Commercial License.
+
+📧 Contact & Pitching
+Founder: [narukihto]
+Email: [Issaclex@proton.me]
+
+Currently seeking strategic partnerships and VC interest via YZi Labs and Binance Labs.
