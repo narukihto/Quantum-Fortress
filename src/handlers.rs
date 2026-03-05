@@ -12,8 +12,6 @@ use crate::crypto::QuantumCrypto;
 use crate::entropy::EntropyScanner;
 use sha3::{Sha3_256, Digest};
 use tokio::io::AsyncWriteExt;
-// Specific imports to avoid "unused" warnings
-use ethers::types::Address;
 
 // 1. Generate Bindings from the ABI file
 ethers::prelude::abigen!(VeriPhysContract, "./IntegrityLedger.json");
