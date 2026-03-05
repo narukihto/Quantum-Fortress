@@ -59,7 +59,6 @@ Memory Exploits	Rust Ownership Model	ELIMINATED ✅
 Container Breakout	Distroless + Cap Drop	HARDENED ✅
 Payload Injection	Shannon Entropy Threshold	FILTERED ✅
 
-التصدير إلى "جداول بيانات Google"
 
 📜 License & Commercial Terms
 Open Source Protocol
