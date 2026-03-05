@@ -9,8 +9,6 @@ Version	Supported
 1.0.x	✅ Yes
 < 1.0	❌ No
 
-التصدير إلى "جداول بيانات Google"
-
 🐛 Reporting a Vulnerability
 We take every report seriously. If you discover a security vulnerability within this project, please do not open a public issue. Instead, follow the process below:
 
