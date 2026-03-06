@@ -40,18 +40,17 @@ impl QuantumCrypto {
 mod security_audit_tests {
     use super::*;
     use pqcrypto_dilithium::dilithium2;
-    use pqcrypto_traits::sign::{PublicKey, SecretKey, DetachedSignature};
+    use pqcrypto_traits::sign::{PublicKey, SecretKey};
 
     #[test]
     fn test_quantum_integrity_protection() {
-        // 1. توليد مفاتيح شرعية للاختبار
+        // 1. توليد مفاتيح شرعية للاختبار (Dilithium2)
         let (pk, sk) = dilithium2::keypair();
         let message = b"Critical Transaction: Transfer 1000 BTC";
         let sig = dilithium2::detached_sign(message, &sk);
 
         // 2. فحص النجاح: التوقيع الصحيح يجب أن يمر بنجاح
-        assert!(QuantumCrypto::verify_smart_signature(
-            QuantumSecurityLevel::Standard,
+        assert!(QuantumCrypto::verify_signature(
             message,
             sig.as_bytes(),
             pk.as_bytes()
@@ -59,8 +58,7 @@ mod security_audit_tests {
 
         // 3. هجوم التزييف (Forgery Attack): تغيير حرف واحد في الرسالة
         let tampered_message = b"Critical Transaction: Transfer 9999 BTC";
-        assert!(!QuantumCrypto::verify_smart_signature(
-            QuantumSecurityLevel::Standard,
+        assert!(!QuantumCrypto::verify_signature(
             tampered_message,
             sig.as_bytes(),
             pk.as_bytes()
@@ -68,17 +66,15 @@ mod security_audit_tests {
 
         // 4. هجوم المفتاح الغريب (Man-in-the-middle): استخدام مفتاح عام لشخص آخر
         let (attacker_pk, _) = dilithium2::keypair();
-        assert!(!QuantumCrypto::verify_smart_signature(
-            QuantumSecurityLevel::Standard,
+        assert!(!QuantumCrypto::verify_signature(
             message,
             sig.as_bytes(),
             attacker_pk.as_bytes()
         ), "🚨 Security Breach: Signature verified with wrong public key!");
 
         // 5. هجوم التوقيع التالف (Malformed Signature): إرسال بيانات عشوائية كتوقيع
-        let fake_sig = [0u8; 2420]; 
-        assert!(!QuantumCrypto::verify_smart_signature(
-            QuantumSecurityLevel::Standard,
+        let fake_sig = vec![0u8; dilithium2::signature_bytes()]; 
+        assert!(!QuantumCrypto::verify_signature(
             message,
             &fake_sig,
             pk.as_bytes()
