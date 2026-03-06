@@ -58,6 +58,12 @@ Memory Exploits	Rust Ownership Model	ELIMINATED ✅
 Container Breakout	Distroless + Cap Drop	HARDENED ✅
 Payload Injection	Shannon Entropy Threshold	FILTERED ✅
 
+🗺️ Future Roadmap: The Evolution of the Fortress
+QuantumFortress is designed with a Modular Crypto-Agile architecture. Our upcoming releases will focus on scaling security for institutional-grade assets:
+⚡ Multi-Tier Quantum Scaling (Q3 2026): Implementing dynamic security levels (ML-DSA-44, 65, and 87). This allows the gateway to automatically escalate from Dilithium2 to Dilithium5 for high-value institutional transfers, optimizing the "Gas-vs-Security" trade-off.
+🔗 Hybrid Signature Logic: Integrating classical ECDSA with Post-Quantum Dilithium in a single unified signature. This ensures backward compatibility with legacy wallets while providing a quantum-safe shield.
+🧠 AI-Driven Entropy Adjustment: Utilizing machine learning to dynamically adjust the Shannon Entropy threshold based on real-time network traffic patterns, further reducing false positives.
+📦 Persistent Audit Ledger: Moving from registry.txt to a decentralized PostgreSQL/TimescaleDB backend for immutable security logging and compliance reporting.
 
 📜 License & Commercial Terms
 Open Source Protocol
