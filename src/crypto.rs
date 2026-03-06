@@ -44,42 +44,45 @@ mod security_audit_tests {
 
     #[test]
     fn test_quantum_integrity_protection() {
-        // 1. توليد مفاتيح شرعية للاختبار (Dilithium2)
+        // 1. Setup: Generate a valid Post-Quantum Keypair (Dilithium2)
         let (pk, sk) = dilithium2::keypair();
         let message = b"Critical Transaction: Transfer 1000 BTC";
         let sig = dilithium2::detached_sign(message, &sk);
 
-        // 2. فحص النجاح: التوقيع الصحيح يجب أن يمر بنجاح
+        // 2. Success Scenario: Valid signature must pass verification
         assert!(QuantumCrypto::verify_signature(
             message,
             sig.as_bytes(),
             pk.as_bytes()
-        ), "🛡️ Audit Failed: Valid signature was rejected!");
+        ), "🛡️ Audit Failed: Valid PQC signature was rejected!");
 
-        // 3. هجوم التزييف (Forgery Attack): تغيير حرف واحد في الرسالة
+        // 3. Forgery Attack: Changing a single byte in the message (Data Integrity Test)
+        // Description: Attacker attempts to modify the transaction amount after it was signed.
         let tampered_message = b"Critical Transaction: Transfer 9999 BTC";
         assert!(!QuantumCrypto::verify_signature(
             tampered_message,
             sig.as_bytes(),
             pk.as_bytes()
-        ), "🚨 Security Breach: Tampered message was accepted!");
+        ), "🚨 Security Breach: Tampered message was accepted by the gateway!");
 
-        // 4. هجوم المفتاح الغريب (Man-in-the-middle): استخدام مفتاح عام لشخص آخر
+        // 4. Man-in-the-middle (MITM) / Identity Theft: Using a different public key
+        // Description: Attacker tries to verify a signature using their own public key instead of the sender's.
         let (attacker_pk, _) = dilithium2::keypair();
         assert!(!QuantumCrypto::verify_signature(
             message,
             sig.as_bytes(),
             attacker_pk.as_bytes()
-        ), "🚨 Security Breach: Signature verified with wrong public key!");
+        ), "🚨 Security Breach: Signature verified with an unauthorized public key!");
 
-        // 5. هجوم التوقيع التالف (Malformed Signature): إرسال بيانات عشوائية كتوقيع
+        // 5. Malformed Signature Attack: Sending random/zeroed data as a signature
+        // Description: Attacker attempts to crash the system or bypass security with invalid signature formatting.
         let fake_sig = vec![0u8; dilithium2::signature_bytes()]; 
         assert!(!QuantumCrypto::verify_signature(
             message,
             &fake_sig,
             pk.as_bytes()
-        ), "🚨 Security Breach: Malformed signature was not caught!");
+        ), "🚨 Security Breach: Malformed/Null signature was not caught by the validator!");
 
-        println!("✅ Security Audit Passed: All attack vectors blocked.");
+        println!("✅ Security Audit Passed: All Quantum Attack Vectors Blocked.");
     }
 }
