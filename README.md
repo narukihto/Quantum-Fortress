@@ -1,6 +1,10 @@
-🛡️ QuantumFortress
-The Sentinel of Post-Quantum API Security
-QuantumFortress is a high-performance, industrial-grade security gateway built with Rust. It is specifically engineered to neutralize contemporary cyber threats and provide immunity against the future "Quantum Apocalypse" using NIST-standardized Post-Quantum Cryptography (PQC).
+🛡️ QuantumFortress                                                                                                                                                                                           
+![CI Build & Test](https://github.com)
+![Security Audit](https://img.shields.io)
+![License](https://img.shields.io)
+![Language](https://img.shields.io)
+Quantum API Security
+QuantumFortress is a high-performance, industrial-grade security gateway built with Rust. It is specifically engineered to neutralize contemporary cyber threats and provide immunity against the future Quantum Apocalypse" using NIST-standardized Post-Quantum Cryptography (PQC).
 
 💎 The Value Proposition: Why QuantumFortress?
 Traditional encryption (RSA, ECC) is a "living corpse"—it will be shattered by Shor’s algorithm once Cryptographically Relevant Quantum Computers (CRQC) emerge. QuantumFortress integrates ML-DSA (Dilithium2) today, protecting your infrastructure from "Harvest Now, Decrypt Later" attacks.
